@@ -1,0 +1,5 @@
+asyncio
+requests
+pytak
+pytak[with_crypto]
+pytak[with_takproto]

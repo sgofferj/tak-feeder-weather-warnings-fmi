@@ -1,0 +1,7 @@
+__pycache__
+venv
+*.ipynb*
+*.pem
+*.json
+*.xml
+.env
