@@ -7,7 +7,7 @@ def getUidsInMission(cots):
 
 
 def cleanupMission(takserver, MY_UID, missionName, mission, capUids):
-    print("Misison cleanup")
+    print("Mission cleanup...")
     missionUids = getUidsInMission(mission["data"][0]["uids"])
     valid = 0
     deleted = 0
@@ -17,4 +17,4 @@ def cleanupMission(takserver, MY_UID, missionName, mission, capUids):
         else:
             takserver.removeMissionContent(missionName, missionUid, MY_UID)
             deleted += 1
-    print("Cleanup done. Valid:%d, deleted:%d" % (valid, deleted))
+    print("Cleanup done. Still valid: %d, deleted: %d." % (valid, deleted))

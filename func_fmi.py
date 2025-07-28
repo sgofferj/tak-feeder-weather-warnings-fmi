@@ -1,6 +1,7 @@
 from io import StringIO
 import xml.etree.ElementTree as ET
 import requests as req
+import hashlib
 from datetime import datetime as dt
 
 # req.packages.urllib3.disable_warnings()
@@ -25,6 +26,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
     tmp_object = []
     tmp_list = []
     for child in capxml.findall("entry"):
+        published = child.find("published").text
         alert = child.find("content").find("alert")
         identifier = alert.find("identifier").text
         identifier = "fmi-warning-" + identifier[8:]
@@ -53,6 +55,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 "color": color,
                                 "headline": headline,
                                 "description": description,
+                                "published": dt.strptime(published, dateformat),
                                 "start": dt.strptime(onset, dateformat),
                                 "stale": dt.strptime(expires, dateformat),
                             }
@@ -66,7 +69,8 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 .lower()
                                 .translate(special_char_map)
                             )
-                            uid = identifier + "-" + geocode
+                            uid = identifier + "-" + geocode + "-" + published
+                            uid = "fmi-" + hashlib.md5(uid.encode()).hexdigest()
                             polygon = area.find("polygon").text
                             points = polygon.split(" ")
                             tmp_areas.append(

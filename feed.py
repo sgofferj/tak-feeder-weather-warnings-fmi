@@ -44,7 +44,7 @@ class sendWarnings(pytak.QueueWorker):
                     MISSION, MY_UID
                 )
             if status == 200:
-                print("Updating mission.")
+                print("Updating mission...")
                 uids = []
                 data = bytes()
                 added = 0
@@ -52,7 +52,6 @@ class sendWarnings(pytak.QueueWorker):
                 caps = fmi.getCap(LANG)
                 capList = fmi.cap2List(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
                 capUids = fmi.uidsInCap(capList)
-                util.cleanupMission(takserver, MY_UID, MISSION, mission, capUids)
                 missionUids = util.getUidsInMission(mission["data"][0]["uids"])
 
                 for alert in capList:
@@ -76,15 +75,18 @@ class sendWarnings(pytak.QueueWorker):
                             skipped += 1
                         else:
                             data = cot.cotFromDict(MY_UID, alertDict, LANG, MISSION)
-                            uids.append(area["uid"])
                             #self._logger.info("Sent:\n%s\n", data.decode())
                             await self.handle_data(data)
+                            uids.append(area["uid"])
                             added += 1
+                            print(alert["info"]["color"],alert["info"]["event"],area["areaDesc"],len(area["points"]))
                 takserver.addMissionContent(MISSION, uids, MY_UID)
                 print(
-                    "Update done. Total warnings: %d, added:%d, skipped:%d"
+                    "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
                 )
+                await asyncio.sleep(15)
+                util.cleanupMission(takserver, MY_UID, MISSION, mission, capUids)
                 await asyncio.sleep(UPDATE_INTERVAL)
             else:
                 print(
