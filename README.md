@@ -35,7 +35,6 @@ The following values are supported and can be provided either as environment var
 | MY_UID | fmi-0001-0001-0001-0001 | optional | Sets the UID used by the feeder |
 | LANG | en-GB | optional | Feed language to be fetched |
 | MISSION | Weatherwarnings | optional | Name of the mission |
-| MISSION_GROUP | Weather | recommended | Access groups for the mission |
 | FILTER_URGENCY | Expected,Immediate | optional | Case-sensitive, comma-separated list of urgency codes filter for. Available codes: Immediate, Expected, Future. |
 | FILTER_EVENTCODE | forestFireWeather,hotWeather,rain,<br>seaThunderstorm,seaWind,<br>thunderstorm,wind | optional | Case-sensitive, comma-separated list of event codes to filter for. Default includes all known. |
 
