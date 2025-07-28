@@ -1,3 +1,5 @@
+import time
+
 def getUidsInMission(cots):
     tmp_list = []
     for cot in cots:
@@ -16,5 +18,6 @@ def cleanupMission(takserver, MY_UID, missionName, mission, capUids):
             valid += 1
         else:
             takserver.removeMissionContent(missionName, missionUid, MY_UID)
+            time.sleep(2)
             deleted += 1
     print("Cleanup done. Still valid: %d, deleted: %d." % (valid, deleted))

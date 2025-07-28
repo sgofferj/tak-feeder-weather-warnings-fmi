@@ -45,7 +45,6 @@ class sendWarnings(pytak.QueueWorker):
                 )
             if status == 200:
                 print("Updating mission...")
-                uids = []
                 data = bytes()
                 added = 0
                 skipped = 0
@@ -77,10 +76,13 @@ class sendWarnings(pytak.QueueWorker):
                             data = cot.cotFromDict(MY_UID, alertDict, LANG, MISSION)
                             #self._logger.info("Sent:\n%s\n", data.decode())
                             await self.handle_data(data)
-                            uids.append(area["uid"])
                             added += 1
-                            print(alert["info"]["color"],alert["info"]["event"],area["areaDesc"],len(area["points"]))
-                takserver.addMissionContent(MISSION, uids, MY_UID)
+                            #print(alert["info"]["color"],alert["info"]["event"],area["areaDesc"],len(area["points"]))
+                            status, result=takserver.addMissionContent(MISSION, [area["uid"]], MY_UID)
+                            if status != 200:
+                                print(status, result)
+                            await asyncio.sleep(1)
+
                 print(
                     "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
