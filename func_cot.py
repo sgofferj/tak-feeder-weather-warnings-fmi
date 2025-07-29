@@ -3,31 +3,7 @@ from datetime import datetime as dt, timezone as tz, timedelta
 import pytak
 
 
-def centroid(points):
-    vertices = []
-    for pts in points:
-        lat, lon = pts.split(",")
-        vertices.append((float(lat), float(lon)))
-
-    x, y = 0, 0
-    n = len(vertices)
-    signed_area = 0
-    for i in range(len(vertices)):
-        x0, y0 = vertices[i]
-        x1, y1 = vertices[(i + 1) % n]
-        # shoelace formula
-        area = (x0 * y1) - (x1 * y0)
-        signed_area += area
-        x += (x0 + x1) * area
-        y += (y0 + y1) * area
-    signed_area *= 0.5
-    x /= 6 * signed_area
-    y /= 6 * signed_area
-    return x, y
-
-
 def cotFromDict(MY_UID, cot, LANG, MISSION):
-    lat, lon = centroid(cot["points"])
     uid = cot["uid"]
     root = ET.Element("event")
     root.set("version", "2.0")
@@ -38,16 +14,15 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     root.set("start", cot["start"].strftime("%Y-%m-%dT%H:%M:%S.000Z"))
     root.set("stale", cot["stale"].strftime("%Y-%m-%dT%H:%M:%S.000Z"))
     pt_attr = {
-        "lat": str(lat),
-        "lon": str(lon),
+        "lat": str(cot["lat"]),
+        "lon": str(cot["lon"]),
         "hae": "0",
         "ce": "9999999.0",
         "le": "9999999.0",
     }
-
     ET.SubElement(root, "point", attrib=pt_attr)
 
-    callsign = cot["event"] + " " + cot["areaDesc"]
+    callsign = cot["callsign"]
     contact = ET.Element("contact")
     contact.set("callsign", callsign)
 
@@ -109,10 +84,6 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
 
     detail.append(routing)
     detail.append(contact)
-    for point in cot["points"]:
-        e_point = ET.Element("link")
-        e_point.set("point", point)
-        detail.append(e_point)
     detail.append(remarks)
     detail.append(creator)
     detail.append(color)
@@ -122,6 +93,10 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     detail.append(sweight)
     detail.append(sstyle)
     detail.append(fcolor)
+    for point in cot["points"]:
+        e_point = ET.Element("link")
+        e_point.set("point", point)
+        detail.append(e_point)
 
     root.append(detail)
 
@@ -165,16 +140,10 @@ def keepAlive(uid, LANG, VERSION, MISSION):
     e_uid = ET.Element("uid")
     e_uid.set("Droid", callsign)
 
-    routing = ET.Element("marti")
-    r_dest = ET.Element("dest")
-    r_dest.set("mission", MISSION)
-    routing.append(r_dest)
-
     archive = ET.Element("archive")
     detail = ET.Element("detail")
 
     detail.append(e_uid)
-    # detail.append(routing)
     detail.append(contact)
     detail.append(remarks)
     detail.append(archive)

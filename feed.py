@@ -35,22 +35,26 @@ class sendWarnings(pytak.QueueWorker):
         await self.put_queue(event)
 
     async def run(self):
-        """Run the loop for processing or generating pre-CoT data."""
+        """Weather warning loop"""
         while 1:
+            self._logger.info("Getting mission from TAK server...")
             status, mission = takserver.getMission(MISSION)
             if status == 404:
-                print("Mission does not exist, creating...")
-                status, mission = takserver.createMission(
-                    MISSION, MY_UID
-                )
+                self._logger.info("Mission does not exist, creating...")
+                status, mission = takserver.createMission(MISSION, MY_UID)
             if status == 200:
-                print("Updating mission...")
+                self._logger.info("Mission found.")
                 data = bytes()
+                uids = []
                 added = 0
                 skipped = 0
+                self._logger.info("Getting warning data...")
                 caps = fmi.getCap(LANG)
                 capList = fmi.cap2List(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
                 capUids = fmi.uidsInCap(capList)
+                util.cleanupMission(self, takserver, MY_UID, MISSION, mission, capUids)
+                await asyncio.sleep(10)
+                self._logger.info("Updating mission...")
                 missionUids = util.getUidsInMission(mission["data"][0]["uids"])
 
                 for alert in capList:
@@ -66,7 +70,10 @@ class sendWarnings(pytak.QueueWorker):
                         alertDict.update(
                             {
                                 "uid": area["uid"],
+                                "callsign": area["callsign"],
                                 "areaDesc": area["areaDesc"],
+                                "lat": area["lat"],
+                                "lon": area["lon"],
                                 "points": area["points"],
                             }
                         )
@@ -74,24 +81,29 @@ class sendWarnings(pytak.QueueWorker):
                             skipped += 1
                         else:
                             data = cot.cotFromDict(MY_UID, alertDict, LANG, MISSION)
-                            #self._logger.info("Sent:\n%s\n", data.decode())
+                            # self._logger.info("Sent:\n%s\n", data.decode())
                             await self.handle_data(data)
                             added += 1
-                            #print(alert["info"]["color"],alert["info"]["event"],area["areaDesc"],len(area["points"]))
-                            status, result=takserver.addMissionContent(MISSION, [area["uid"]], MY_UID)
-                            if status != 200:
-                                print(status, result)
-                            await asyncio.sleep(1)
+                            uids.append(area["uid"])
+                            self._logger.debug(
+                                area["uid"],
+                                area["lat"],
+                                area["lon"],
+                                len(area["points"]),
+                            )
+                if len(uids) > 0:
+                    status, result = takserver.addMissionContent(MISSION, uids, MY_UID)
+                    if status != 200:
+                        self._logger.error(status, result)
+                # await asyncio.sleep(1)
 
-                print(
+                self._logger.info(
                     "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
                 )
-                await asyncio.sleep(15)
-                util.cleanupMission(takserver, MY_UID, MISSION, mission, capUids)
                 await asyncio.sleep(UPDATE_INTERVAL)
             else:
-                print(
+                self._logger.info(
                     "Could neither find nor create mission. Please check the configuration!"
                 )
 
@@ -104,7 +116,7 @@ class sendKeepAlive(pytak.QueueWorker):
         await self.put_queue(event)
 
     async def run(self):
-        """Run the loop for processing or generating pre-CoT data."""
+        """Keepalive loop, sends a cot for the FMI"""
         while 1:
             data = bytes()
             data = cot.keepAlive(MY_UID, LANG, VERSION, MISSION)

@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import requests as req
 import hashlib
 from datetime import datetime as dt
+import func_util as util
 
 # req.packages.urllib3.disable_warnings()
 
@@ -27,6 +28,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
     tmp_list = []
     for child in capxml.findall("entry"):
         published = child.find("published").text
+        updated = child.find("updated").text
         alert = child.find("content").find("alert")
         identifier = alert.find("identifier").text
         identifier = "fmi-warning-" + identifier[8:]
@@ -56,6 +58,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 "headline": headline,
                                 "description": description,
                                 "published": dt.strptime(published, dateformat),
+                                "updated": dt.strptime(updated, dateformat),
                                 "start": dt.strptime(onset, dateformat),
                                 "stale": dt.strptime(expires, dateformat),
                             }
@@ -69,14 +72,23 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 .lower()
                                 .translate(special_char_map)
                             )
-                            uid = identifier + "-" + geocode + "-" + published
-                            uid = "fmi-" + hashlib.md5(uid.encode()).hexdigest()
+                            uid = identifier + "-" + geocode + "-" + updated
+                            urnhash = hashlib.md5(uid.encode()).hexdigest()
+                            uid = "fmi-ww-" + urnhash
+                            callsign = event + " " + areaDesc  # "WW." + urnhash
                             polygon = area.find("polygon").text
                             points = polygon.split(" ")
+                            lat, lon = util.centroid(points)
+                            lat = round(lat, 6)
+                            lon = round(lon, 6)
+
                             tmp_areas.append(
                                 {
                                     "uid": uid,
+                                    "callsign": callsign,
                                     "areaDesc": areaDesc,
+                                    "lat": lat,
+                                    "lon": lon,
                                     "points": points,
                                 }
                             )
@@ -90,5 +102,6 @@ def uidsInCap(capList):
     uids = []
     for alert in capList:
         for area in alert["areas"]:
-            uids.append(area["uid"])
+            uid = area["uid"]
+            uids.append(uid)
     return uids

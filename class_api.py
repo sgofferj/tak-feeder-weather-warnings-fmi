@@ -21,11 +21,11 @@ class server:
         else:
             return r.status_code, r.json()
 
-    def createMission(self, name, creatorUid, groups=""):
+    def createMission(self, name, creatorUid, group=""):
         """Creates a mission"""
         path = f"/Marti/api/missions/{name}?creatorUid={creatorUid}&classification=unclassified&defaultRole=MISSION_SUBSCRIBER"
-        if groups != "":
-            path += f"&group={groups}"
+        if group != "":
+            path += f"&group={group}"
         print(path)
         url = self.apiBaseURL + path
         r = req.put(url, cert=self.crt, verify=False)
@@ -51,4 +51,4 @@ class server:
         if r.status_code != 200:
             return r.status_code, r.text
         else:
-            return r.json()
+            return r.status_code, r.json()
