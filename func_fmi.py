@@ -2,11 +2,13 @@ from io import StringIO
 import xml.etree.ElementTree as ET
 import requests as req
 import hashlib
+import uuid
 from datetime import datetime as dt
 import func_util as util
 
 # req.packages.urllib3.disable_warnings()
 
+uid_prefix = ""
 dateformat = "%Y-%m-%dT%H:%M:%S%z"
 special_char_map = {ord("ä"): "ae", ord("ü"): "ue", ord("ö"): "oe", ord("å"): "a"}
 
@@ -25,7 +27,6 @@ def getCap(lang):
 def cap2List(capxml, lang, filter_urgency, filter_eventcode):
     """Extract the relevant data from the CAP XML and create an object for further processing"""
     tmp_object = []
-    tmp_list = []
     for child in capxml.findall("entry"):
         published = child.find("published").text
         updated = child.find("updated").text
@@ -73,8 +74,9 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 .translate(special_char_map)
                             )
                             uid = identifier + "-" + geocode + "-" + updated
-                            urnhash = hashlib.md5(uid.encode()).hexdigest()
-                            uid = "fmi-ww-" + urnhash
+                            urnhash = hashlib.md5(uid.encode("UTF-8")).hexdigest()
+                            uid = str(uuid.UUID(hex=urnhash))
+                            uid = uid_prefix + uid
                             callsign = event + " " + areaDesc  # "WW." + urnhash
                             polygon = area.find("polygon").text
                             points = polygon.split(" ")

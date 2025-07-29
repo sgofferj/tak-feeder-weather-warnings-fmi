@@ -15,11 +15,11 @@ CLIENT_CERT = os.getenv("CLIENT_CERT")
 CLIENT_KEY = os.getenv("CLIENT_KEY")
 PYTAK_TLS_DONT_VERIFY = os.getenv("PYTAK_TLS_DONT_VERIFY", "1")
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "3600"))
-MY_UID = os.getenv("MY_UID", "fmi-0001-0001-0001-0001")
+MY_UID = os.getenv("MY_UID", "fmi.0001")
 LANG = os.getenv("FMI_LANG", "en-GB")
 API_HOST = os.getenv("API_HOST")
 API_PORT = int(os.getenv("API_PORT", 8443))
-MISSION = os.getenv("MISSION_NAME", "Weatherwarnings")
+MISSION_NAME = os.getenv("MISSION_NAME", "Weatherwarnings")
 FILTER_URGENCY = os.getenv("FILTER_URGENCY", "Expected,Immediate").split(",")
 FILTER_EVENTCODE = os.getenv(
     "FILTER_EVENTCODE",
@@ -36,24 +36,26 @@ class sendWarnings(pytak.QueueWorker):
 
     async def run(self):
         """Weather warning loop"""
+        self._logger.setLevel("DEBUG")
         while 1:
             self._logger.info("Getting mission from TAK server...")
-            status, mission = takserver.getMission(MISSION)
-            if status == 404:
+            mstatus, mission = takserver.getMission(MISSION_NAME)
+            if mstatus == 404:
                 self._logger.info("Mission does not exist, creating...")
-                status, mission = takserver.createMission(MISSION, MY_UID)
-            if status == 200:
+                status, mission = takserver.createMission(MISSION_NAME, MY_UID)
+            if mstatus == 200:
                 self._logger.info("Mission found.")
                 data = bytes()
-                uids = []
                 added = 0
                 skipped = 0
                 self._logger.info("Getting warning data...")
                 caps = fmi.getCap(LANG)
                 capList = fmi.cap2List(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
                 capUids = fmi.uidsInCap(capList)
-                util.cleanupMission(self, takserver, MY_UID, MISSION, mission, capUids)
-                await asyncio.sleep(10)
+                util.cleanupMission(
+                    self, takserver, MY_UID, MISSION_NAME, mission, capUids
+                )
+                await asyncio.sleep(5)
                 self._logger.info("Updating mission...")
                 missionUids = util.getUidsInMission(mission["data"][0]["uids"])
 
@@ -80,21 +82,24 @@ class sendWarnings(pytak.QueueWorker):
                         if area["uid"] in missionUids:
                             skipped += 1
                         else:
-                            data = cot.cotFromDict(MY_UID, alertDict, LANG, MISSION)
-                            # self._logger.info("Sent:\n%s\n", data.decode())
+                            data = cot.cotFromDict(
+                                MY_UID, alertDict, LANG, MISSION_NAME
+                            )
+                            self._logger.info("%s", data.decode())
                             await self.handle_data(data)
                             added += 1
-                            uids.append(area["uid"])
-                            self._logger.debug(
+                            self._logger.info(
+                                "%s - %s,%s %d",
                                 area["uid"],
                                 area["lat"],
                                 area["lon"],
                                 len(area["points"]),
                             )
-                if len(uids) > 0:
-                    status, result = takserver.addMissionContent(MISSION, uids, MY_UID)
-                    if status != 200:
-                        self._logger.error(status, result)
+                            status, result = takserver.addMissionContent(
+                                MISSION_NAME, [area["uid"]], MY_UID
+                            )
+                            if status != 200:
+                                self._logger.error("%s %s", status, result)
                 # await asyncio.sleep(1)
 
                 self._logger.info(
@@ -119,7 +124,7 @@ class sendKeepAlive(pytak.QueueWorker):
         """Keepalive loop, sends a cot for the FMI"""
         while 1:
             data = bytes()
-            data = cot.keepAlive(MY_UID, LANG, VERSION, MISSION)
+            data = cot.keepAlive(MY_UID, LANG, VERSION, MISSION_NAME)
             # self._logger.info("Sent:\n%s\n", data.decode())
             await self.handle_data(data)
             await asyncio.sleep(30)

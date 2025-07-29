@@ -26,7 +26,17 @@ class server:
         path = f"/Marti/api/missions/{name}?creatorUid={creatorUid}&classification=unclassified&defaultRole=MISSION_SUBSCRIBER"
         if group != "":
             path += f"&group={group}"
-        print(path)
+        url = self.apiBaseURL + path
+        r = req.put(url, cert=self.crt, verify=False)
+        if r.status_code != 200:
+            return r.status_code, r.text
+        else:
+            return r.status_code, r.json()
+
+    def setMissionRole(self, name, clientUid, userName, role):
+        """Sets the role for a subscriber"""
+        path = f"/Marti/api/missions/{name}/role"
+        data = {"clientUid": clientUid, "username": userName, "role": role}
         url = self.apiBaseURL + path
         r = req.put(url, cert=self.crt, verify=False)
         if r.status_code != 200:

@@ -45,9 +45,11 @@ def cleanupMission(self, takserver, MY_UID, missionName, mission, capUids):
                 missionName, missionUid, MY_UID
             )
             if status == 200:
-                self._logger.debug("Removed", missionUid)
+                self._logger.info("Removed %s", missionUid)
             else:
-                self._logger.error("Could not remove %s: %d %s", missionUid, status, result)
-            time.sleep(1)
+                self._logger.error(
+                    "Could not remove %s: %d %s", missionUid, status, result
+                )
+            # time.sleep(1)
             deleted += 1
-    self._logger.info("Cleanup done. Still valid: %d, deleted: %d." % (valid, deleted))
+    self._logger.info("Cleanup done. Still valid: %d, deleted: %d.", valid, deleted)

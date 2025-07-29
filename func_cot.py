@@ -27,25 +27,9 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     contact.set("callsign", callsign)
 
     remarks = ET.Element("remarks")
-    remarks.text = cot["description"]
-    if LANG == "fi-FI":
-        remarks.text += "\nSäävaroitukset: Ilmatieteenlaitos avoin data, CC-BY 4.0"
-    elif LANG == "sv-FI":
-        remarks.text += (
-            "\nWeather warnings: Finnish Meteorological Institute open data, CC-BY 4.0"
-        )
-    elif LANG == "en-GB":
-        remarks.text += (
-            "\nWeather warnings: Finnish Meteorological Institute open data, CC-BY 4.0"
-        )
-    remarks.text += "\n#weather #warning"
+    remarks.text = cot["headline"]
 
-    if LANG == "fi-FI":
-        mycallsign = "Ilmatieteenlaitos"
-    elif LANG == "sv-FI":
-        mycallsign = "Meteorologiska institutet"
-    elif LANG == "en-GB":
-        mycallsign = "Finnish Meteorological Institute"
+    mycallsign = "FMI"
 
     creator = ET.Element("creator")
     creator.set("uid", MY_UID)
