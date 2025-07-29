@@ -21,11 +21,27 @@ class server:
         else:
             return r.status_code, r.json()
 
-    def createMission(self, name, creatorUid, group=""):
+    def getMissionRole(self, name):
+        """Returns role in the mission"""
+        path = f"/Marti/api/missions/{name}/role"
+        url = self.apiBaseURL + path
+        r = req.get(url, cert=self.crt, verify=False)
+        if r.status_code != 200:
+            return r.status_code, r.text
+        else:
+            return r.status_code, r.json()
+
+    def createMission(
+        self, name, creatorUid, group="", defaultrole="", classification=""
+    ):
         """Creates a mission"""
-        path = f"/Marti/api/missions/{name}?creatorUid={creatorUid}&classification=unclassified&defaultRole=MISSION_SUBSCRIBER"
+        path = f"/Marti/api/missions/{name}?creatorUid={creatorUid}"
         if group != "":
             path += f"&group={group}"
+        if defaultrole != "":
+            path += f"&defaultRole={defaultrole}"
+        if classification != "":
+            path += f"&classification={classification}"
         url = self.apiBaseURL + path
         r = req.put(url, cert=self.crt, verify=False)
         if r.status_code != 200:
@@ -44,10 +60,10 @@ class server:
         else:
             return r.status_code, r.json()
 
-    def addMissionContent(self, name, uid, MY_UID):
+    def addMissionContent(self, name, uids, MY_UID):
         path = f"/Marti/api/missions/{name}/contents?creatorUid={MY_UID}"
         url = self.apiBaseURL + path
-        data = {"uids": uid}
+        data = {"uids": uids}
         r = req.put(url, json=data, cert=self.crt, verify=False)
         if r.status_code != 200:
             return r.status_code, r.text

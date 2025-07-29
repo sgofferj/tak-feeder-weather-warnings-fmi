@@ -42,20 +42,23 @@ class sendWarnings(pytak.QueueWorker):
             mstatus, mission = takserver.getMission(MISSION_NAME)
             if mstatus == 404:
                 self._logger.info("Mission does not exist, creating...")
-                status, mission = takserver.createMission(MISSION_NAME, MY_UID)
+                status, mission = takserver.createMission(
+                    MISSION_NAME,
+                    MY_UID,
+                    defaultrole="MISSION_SUBSCRIBER",
+                    classification="unclassified",
+                )
+                if status > 400:
+                    self._logger.error("%s %s", status, mission)
             if mstatus == 200:
                 self._logger.info("Mission found.")
                 data = bytes()
+                uids = []
                 added = 0
                 skipped = 0
                 self._logger.info("Getting warning data...")
                 caps = fmi.getCap(LANG)
                 capList = fmi.cap2List(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
-                capUids = fmi.uidsInCap(capList)
-                util.cleanupMission(
-                    self, takserver, MY_UID, MISSION_NAME, mission, capUids
-                )
-                await asyncio.sleep(5)
                 self._logger.info("Updating mission...")
                 missionUids = util.getUidsInMission(mission["data"][0]["uids"])
 
@@ -87,6 +90,7 @@ class sendWarnings(pytak.QueueWorker):
                             )
                             self._logger.info("%s", data.decode())
                             await self.handle_data(data)
+                            uids.append(area["uid"])
                             added += 1
                             self._logger.info(
                                 "%s - %s,%s %d",
@@ -95,16 +99,22 @@ class sendWarnings(pytak.QueueWorker):
                                 area["lon"],
                                 len(area["points"]),
                             )
-                            status, result = takserver.addMissionContent(
-                                MISSION_NAME, [area["uid"]], MY_UID
-                            )
-                            if status != 200:
-                                self._logger.error("%s %s", status, result)
+                if len(uids) > 0:
+                    status, result = takserver.addMissionContent(
+                        MISSION_NAME, uids, MY_UID
+                    )
+                    if status != 200:
+                        self._logger.error("%s %s", status, result)
                 # await asyncio.sleep(1)
 
                 self._logger.info(
                     "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
+                )
+                await asyncio.sleep(5)
+                capUids = fmi.uidsInCap(capList)
+                util.cleanupMission(
+                    self, takserver, MY_UID, MISSION_NAME, mission, capUids
                 )
                 await asyncio.sleep(UPDATE_INTERVAL)
             else:
@@ -124,28 +134,10 @@ class sendKeepAlive(pytak.QueueWorker):
         """Keepalive loop, sends a cot for the FMI"""
         while 1:
             data = bytes()
-            data = cot.keepAlive(MY_UID, LANG, VERSION, MISSION_NAME)
-            # self._logger.info("Sent:\n%s\n", data.decode())
+            data = cot.keepAlive(MY_UID, LANG, VERSION)
+            self._logger.info("Sent:\n%s\n", data.decode())
             await self.handle_data(data)
             await asyncio.sleep(30)
-
-
-class cotReceiver(pytak.QueueWorker):
-    """Defines how you will handle events from RX Queue."""
-
-    async def handle_data(self, data):
-        """Handle data from the receive queue."""
-        rx = data.decode()
-        if "b-t-f" in rx:
-            self._logger.info("Received:\n%s\n", rx)
-
-    async def run(self):
-        """Read from the receive queue, put data onto handler."""
-        while True:
-            data = (
-                await self.queue.get()
-            )  # this is how we get the received CoT from rx_queue
-            await self.handle_data(data)
 
 
 async def main():
@@ -166,9 +158,8 @@ async def main():
     clitool.add_tasks(
         set(
             [
-                sendWarnings(clitool.tx_queue, config),
                 sendKeepAlive(clitool.tx_queue, config),
-                cotReceiver(clitool.rx_queue, config),
+                sendWarnings(clitool.tx_queue, config),
             ]
         )
     )

@@ -87,36 +87,37 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     return ET.tostring(root)
 
 
-def keepAlive(uid, LANG, VERSION, MISSION):
+def keepAlive(uid, LANG, VERSION):
     root = ET.Element("event")
     root.set("version", "2.0")
-    root.set("type", "a-f-G-I-U-R")
+    root.set("type", "a-f-G-U")
     root.set("uid", uid)
-    root.set("how", "h-e")
+    root.set("how", "m-g")
     root.set("time", pytak.cot_time())
     root.set("start", pytak.cot_time())
-    root.set("stale", pytak.cot_time(3600))
+    root.set("stale", pytak.cot_time(60))
     pt_attr = {
-        "lat": "60.203748",
-        "lon": "24.961131",
-        "hae": "0",
-        "ce": "0",
-        "le": "0",
+        "lat": "0.0",  # "60.203748",
+        "lon": "0.0",  # "24.961131",
+        "hae": "9999999.0",
+        "ce": "9999999.0",
+        "le": "9999999.0",
     }
 
     ET.SubElement(root, "point", attrib=pt_attr)
 
-    if LANG == "fi-FI":
-        callsign = "Ilmatieteenlaitos"
-    elif LANG == "sv-FI":
-        callsign = "Meteorologiska institutet"
-    elif LANG == "en-GB":
-        callsign = "Finnish Meteorological Institute"
+    callsign = "FMI"
     contact = ET.Element("contact")
     contact.set("callsign", callsign)
-    # contact.set("endpoint", "*:-1:stcp") #Kept for future use
     contact.set("phone", "+358-29-539-1000")
     contact.set("emailAddress", "kirjaamo@fmi.fi")
+    contact.set("endpoint", "*:-1:stcp")  # Kept for future use
+
+    takv = ET.Element("takv")
+    takv.set("device", "Docker")
+    takv.set("os", "Linux")
+    takv.set("platform", "Warning feeder")
+    takv.set("version", VERSION)
 
     remarks = ET.Element("remarks")
     remarks.text = "#weather"
@@ -124,13 +125,22 @@ def keepAlive(uid, LANG, VERSION, MISSION):
     e_uid = ET.Element("uid")
     e_uid.set("Droid", callsign)
 
-    archive = ET.Element("archive")
+    dgroup = ET.Element("__group")
+    dgroup.set("name", "White")
+    dgroup.set("role", "HQ")
+
+    track = ET.Element("track")
+    track.set("course", "9999999.0")
+    track.set("speed", "0")
+
     detail = ET.Element("detail")
 
-    detail.append(e_uid)
+    detail.append(takv)
     detail.append(contact)
+    detail.append(e_uid)
+    detail.append(dgroup)
+    detail.append(track)
     detail.append(remarks)
-    detail.append(archive)
 
     root.append(detail)
 
