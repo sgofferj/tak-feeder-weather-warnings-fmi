@@ -92,7 +92,7 @@ def keepAlive(uid, LANG, VERSION):
     root.set("version", "2.0")
     root.set("type", "a-f-G-U")
     root.set("uid", uid)
-    root.set("how", "m-g")
+    root.set("how", "h-e")
     root.set("time", pytak.cot_time())
     root.set("start", pytak.cot_time())
     root.set("stale", pytak.cot_time(60))
@@ -100,8 +100,8 @@ def keepAlive(uid, LANG, VERSION):
         "lat": "0.0",  # "60.203748",
         "lon": "0.0",  # "24.961131",
         "hae": "9999999.0",
-        "ce": "9999999.0",
-        "le": "9999999.0",
+        "ce": "9999999",
+        "le": "9999999",
     }
 
     ET.SubElement(root, "point", attrib=pt_attr)
@@ -130,8 +130,11 @@ def keepAlive(uid, LANG, VERSION):
     dgroup.set("role", "HQ")
 
     track = ET.Element("track")
-    track.set("course", "9999999.0")
+    track.set("course", "0")
     track.set("speed", "0")
+
+    status = ET.Element("status")
+    status.set("battery", "99")
 
     detail = ET.Element("detail")
 
@@ -139,6 +142,7 @@ def keepAlive(uid, LANG, VERSION):
     detail.append(contact)
     detail.append(e_uid)
     detail.append(dgroup)
+    detail.append(status)
     detail.append(track)
     detail.append(remarks)
 

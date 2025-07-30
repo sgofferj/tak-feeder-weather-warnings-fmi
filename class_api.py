@@ -31,6 +31,26 @@ class server:
         else:
             return r.status_code, r.json()
 
+    def getMissionSubscriptions(self, name):
+        """Returns subscribtions to the mission"""
+        path = f"/Marti/api/missions/{name}/subscriptions"
+        url = self.apiBaseURL + path
+        r = req.get(url, cert=self.crt, verify=False)
+        if r.status_code != 200:
+            return r.status_code, r.text
+        else:
+            return r.status_code, r.json()
+
+    def getMissionSubscriptionRoles(self, name):
+        """Returns subscribtions to the mission"""
+        path = f"/Marti/api/missions/{name}/subscriptions/roles"
+        url = self.apiBaseURL + path
+        r = req.get(url, cert=self.crt, verify=False)
+        if r.status_code != 200:
+            return r.status_code, r.text
+        else:
+            return r.status_code, r.json()
+
     def createMission(
         self, name, creatorUid, group="", defaultrole="", classification=""
     ):

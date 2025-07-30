@@ -45,9 +45,10 @@ class sendWarnings(pytak.QueueWorker):
                 status, mission = takserver.createMission(
                     MISSION_NAME,
                     MY_UID,
-                    defaultrole="MISSION_SUBSCRIBER",
+                    defaultrole="MISSION_READONLY_SUBSCRIBER",
                     classification="unclassified",
                 )
+                await asyncio.sleep(15)
                 if status > 400:
                     self._logger.error("%s %s", status, mission)
             if mstatus == 200:
@@ -105,13 +106,11 @@ class sendWarnings(pytak.QueueWorker):
                     )
                     if status != 200:
                         self._logger.error("%s %s", status, result)
-                # await asyncio.sleep(1)
-
                 self._logger.info(
                     "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
                 )
-                await asyncio.sleep(5)
+                await asyncio.sleep(30)
                 capUids = fmi.uidsInCap(capList)
                 util.cleanupMission(
                     self, takserver, MY_UID, MISSION_NAME, mission, capUids
@@ -135,9 +134,25 @@ class sendKeepAlive(pytak.QueueWorker):
         while 1:
             data = bytes()
             data = cot.keepAlive(MY_UID, LANG, VERSION)
-            self._logger.info("Sent:\n%s\n", data.decode())
+            # self._logger.info("Sent:\n%s\n", data.decode())
             await self.handle_data(data)
             await asyncio.sleep(30)
+
+
+class MyReceiver(pytak.QueueWorker):
+    """Defines how you will handle events from RX Queue."""
+
+    async def handle_data(self, data):
+        """Handle data from the receive queue."""
+        text = data.decode()
+        if "t-x" in text:
+            self._logger.info("Received:\n%s\n", text)
+
+    async def run(self):
+        """Read from the receive queue, put data onto handler."""
+        while True:
+            data = await self.queue.get()
+            await self.handle_data(data)
 
 
 async def main():
@@ -160,6 +175,7 @@ async def main():
             [
                 sendKeepAlive(clitool.tx_queue, config),
                 sendWarnings(clitool.tx_queue, config),
+                MyReceiver(clitool.rx_queue, config),
             ]
         )
     )
@@ -169,4 +185,6 @@ async def main():
 
 if __name__ == "__main__":
     takserver = api.server(API_HOST, CLIENT_CERT, CLIENT_KEY)
+    print(takserver.getMissionSubscriptions(MISSION_NAME))
+    print(takserver.getMissionSubscriptionRoles(MISSION_NAME))
     asyncio.run(main())
