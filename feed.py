@@ -45,7 +45,7 @@ class sendWarnings(pytak.QueueWorker):
                 status, mission = takserver.createMission(
                     MISSION_NAME,
                     MY_UID,
-                    defaultrole="MISSION_READONLY_SUBSCRIBER",
+                    defaultrole="MISSION_SUBSCRIBER",
                     classification="unclassified",
                 )
                 await asyncio.sleep(15)
@@ -185,6 +185,4 @@ async def main():
 
 if __name__ == "__main__":
     takserver = api.server(API_HOST, CLIENT_CERT, CLIENT_KEY)
-    print(takserver.getMissionSubscriptions(MISSION_NAME))
-    print(takserver.getMissionSubscriptionRoles(MISSION_NAME))
     asyncio.run(main())
