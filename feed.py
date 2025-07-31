@@ -188,7 +188,7 @@ if __name__ == "__main__":
                 defaultrole="MISSION_READONLY_SUBSCRIBER",
                 classification="unclassified",
             )
-            if status == 200:
+            if status < 400:
                 TOKEN = mission["data"]["token"]
                 print(f"Mission created, token: {TOKEN}")
             if status > 400:
