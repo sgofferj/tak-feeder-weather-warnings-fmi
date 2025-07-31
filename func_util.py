@@ -32,7 +32,7 @@ def getUidsInMission(cots):
     return tmp_list
 
 
-def cleanupMission(self, takserver, MY_UID, missionName, mission, capUids):
+def cleanupMission(self, takserver, MY_UID, missionName, mission, capUids, token):
     self._logger.info("Mission cleanup...")
     missionUids = getUidsInMission(mission["data"][0]["uids"])
     valid = 0
@@ -42,7 +42,7 @@ def cleanupMission(self, takserver, MY_UID, missionName, mission, capUids):
             valid += 1
         else:
             status, result = takserver.removeMissionContent(
-                missionName, missionUid, MY_UID
+                missionName, missionUid, MY_UID, token
             )
             if status == 200:
                 self._logger.info("Removed %s", missionUid)

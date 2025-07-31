@@ -20,6 +20,7 @@ LANG = os.getenv("FMI_LANG", "en-GB")
 API_HOST = os.getenv("API_HOST")
 API_PORT = int(os.getenv("API_PORT", 8443))
 MISSION_NAME = os.getenv("MISSION_NAME", "Weatherwarnings")
+TOKEN = os.getenv("MISSION_TOKEN", "")
 FILTER_URGENCY = os.getenv("FILTER_URGENCY", "Expected,Immediate").split(",")
 FILTER_EVENTCODE = os.getenv(
     "FILTER_EVENTCODE",
@@ -41,16 +42,7 @@ class sendWarnings(pytak.QueueWorker):
             self._logger.info("Getting mission from TAK server...")
             mstatus, mission = takserver.getMission(MISSION_NAME)
             if mstatus == 404:
-                self._logger.info("Mission does not exist, creating...")
-                status, mission = takserver.createMission(
-                    MISSION_NAME,
-                    MY_UID,
-                    defaultrole="MISSION_SUBSCRIBER",
-                    classification="unclassified",
-                )
-                await asyncio.sleep(15)
-                if status > 400:
-                    self._logger.error("%s %s", status, mission)
+                self._logger.info("Mission not found.")
             if mstatus == 200:
                 self._logger.info("Mission found.")
                 data = bytes()
@@ -102,7 +94,7 @@ class sendWarnings(pytak.QueueWorker):
                             )
                 if len(uids) > 0:
                     status, result = takserver.addMissionContent(
-                        MISSION_NAME, uids, MY_UID
+                        MISSION_NAME, uids, MY_UID, TOKEN
                     )
                     if status != 200:
                         self._logger.error("%s %s", status, result)
@@ -110,10 +102,12 @@ class sendWarnings(pytak.QueueWorker):
                     "Update done. Total warnings available: %d, added: %d, skipped: %d."
                     % ((added + skipped), added, skipped)
                 )
-                await asyncio.sleep(30)
+                await asyncio.sleep(
+                    30
+                )  # This delay is more for the benefits of clients. ATAK sometimes gets confused is mission changes happen to quickly.
                 capUids = fmi.uidsInCap(capList)
                 util.cleanupMission(
-                    self, takserver, MY_UID, MISSION_NAME, mission, capUids
+                    self, takserver, MY_UID, MISSION_NAME, mission, capUids, TOKEN
                 )
                 await asyncio.sleep(UPDATE_INTERVAL)
             else:
@@ -185,4 +179,28 @@ async def main():
 
 if __name__ == "__main__":
     takserver = api.server(API_HOST, CLIENT_CERT, CLIENT_KEY)
+
+    if TOKEN == "":
+        print("Trying to create subscription...")
+        status, subscription = takserver.createMissionSubscription(MISSION_NAME, MY_UID)
+        if status == 201:
+            TOKEN = subscription["data"]["token"]
+            role = subscription["data"]["role"]["type"]
+            print(f"Subscription sucessful\nRole: {role}\ntoken: {TOKEN}")
+        if status == 404:
+            print("Mission does not exist, creating...")
+            status, mission = takserver.createMission(
+                MISSION_NAME,
+                MY_UID,
+                defaultrole="MISSION_READONLY_SUBSCRIBER",
+                classification="unclassified",
+            )
+            if status == 200:
+                TOKEN = mission["data"]["token"]
+                print(f"Mission created, token: {TOKEN}")
+            if status > 400:
+                print("%s %s", status, mission)
+                print("Can neither subscribe to nor create mission. Exiting...")
+                exit()
+
     asyncio.run(main())
