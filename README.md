@@ -6,8 +6,8 @@
 
 Licensed under the GNU General Public License V3 or later.
 
-> [!CAUTION]
-> DO NOT USE YET - I only uploaded it to Github for testing and building the containers
+> [!WARNING]
+> DO NOT USE FOR PRODUCTION YET - STILL TESTING
 
 ## Description
 
