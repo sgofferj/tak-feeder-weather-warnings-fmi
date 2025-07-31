@@ -81,17 +81,10 @@ class sendWarnings(pytak.QueueWorker):
                             data = cot.cotFromDict(
                                 MY_UID, alertDict, LANG, MISSION_NAME
                             )
-                            self._logger.info("%s", data.decode())
+                            # self._logger.info("%s", data.decode())
                             await self.handle_data(data)
                             uids.append(area["uid"])
                             added += 1
-                            self._logger.info(
-                                "%s - %s,%s %d",
-                                area["uid"],
-                                area["lat"],
-                                area["lon"],
-                                len(area["points"]),
-                            )
                 if len(uids) > 0:
                     status, result = takserver.addMissionContent(
                         MISSION_NAME, uids, MY_UID, TOKEN
