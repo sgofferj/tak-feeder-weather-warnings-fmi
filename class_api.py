@@ -34,7 +34,7 @@ class server:
             path += f"&classification={classification}"
         url = self.apiBaseURL + path
         r = req.put(url, cert=self.crt, verify=False)
-        if r.status_code != 200:
+        if r.status_code != 201:
             return r.status_code, r.text
         else:
             return r.status_code, r.json()
