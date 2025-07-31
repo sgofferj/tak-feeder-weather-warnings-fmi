@@ -173,16 +173,6 @@ async def main():
 if __name__ == "__main__":
     takserver = api.server(API_HOST, CLIENT_CERT, CLIENT_KEY)
 
-    status, mission = takserver.createMission(
-        "testmission5",
-        MY_UID,
-        defaultrole="MISSION_READONLY_SUBSCRIBER",
-        classification="unclassified",
-    )
-    print(status, mission)
-    print()
-    exit()
-
     if TOKEN == "":
         print("Trying to create subscription...")
         status, subscription = takserver.createMissionSubscription(MISSION_NAME, MY_UID)
