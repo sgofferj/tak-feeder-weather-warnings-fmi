@@ -73,7 +73,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 .lower()
                                 .translate(special_char_map)
                             )
-                            uid = identifier + "-" + geocode + "-" + updated
+                            uid = identifier + "-" + geocode + "-" + published
                             urnhash = hashlib.md5(uid.encode("UTF-8")).hexdigest()
                             uid = str(uuid.UUID(hex=urnhash))
                             uid = uid_prefix + uid

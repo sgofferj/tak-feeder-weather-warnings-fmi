@@ -150,7 +150,7 @@ async def main():
         "PYTAK_TLS_CLIENT_CERT": CLIENT_CERT,
         "PYTAK_TLS_CLIENT_KEY": CLIENT_KEY,
         "PYTAK_TLS_DONT_VERIFY": PYTAK_TLS_DONT_VERIFY,
-        "MAX_OUT_QUEUE": 1000,
+        "MAX_OUT_QUEUE": 1500,
     }
     config = config["mycottool"]
 
