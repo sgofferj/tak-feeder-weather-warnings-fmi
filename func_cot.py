@@ -72,7 +72,7 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     detail.append(creator)
     detail.append(color)
     detail.append(labels)
-    detail.append(archive)
+    # detail.append(archive)
     detail.append(scolor)
     detail.append(sweight)
     detail.append(sstyle)
