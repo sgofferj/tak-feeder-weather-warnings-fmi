@@ -4,3 +4,4 @@ pytak
 pytak[with_crypto]
 pytak[with_takproto]
 python-takserver-api @ git+https://github.com/sgofferj/python-takserver-api.git
+requests
