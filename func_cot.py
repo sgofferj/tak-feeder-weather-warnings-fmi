@@ -1,9 +1,8 @@
 import xml.etree.ElementTree as ET
-from datetime import datetime as dt, timezone as tz, timedelta
 import pytak
 
 
-def cotFromDict(MY_UID, cot, LANG, MISSION):
+def cot_from_dict(my_uid, cot, lang, mission):
     uid = cot["uid"]
     root = ET.Element("event")
     root.set("version", "2.0")
@@ -32,7 +31,7 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     mycallsign = "FMI"
 
     creator = ET.Element("creator")
-    creator.set("uid", MY_UID)
+    creator.set("uid", my_uid)
     creator.set("callsign", mycallsign)
     creator.set("type", "a-f-G-I-U-R")
     creator.set("time", cot["start"].strftime("%Y-%m-%dT%H:%M:%S.000Z"))
@@ -60,19 +59,15 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
 
     routing = ET.Element("marti")
     r_dest = ET.Element("dest")
-    r_dest.set("mission", MISSION)
+    r_dest.set("mission", mission)
     routing.append(r_dest)
-
-    archive = ET.Element("archive")
     detail = ET.Element("detail")
-
     detail.append(routing)
     detail.append(contact)
     detail.append(remarks)
     detail.append(creator)
     detail.append(color)
     detail.append(labels)
-    # detail.append(archive)
     detail.append(scolor)
     detail.append(sweight)
     detail.append(sstyle)
@@ -87,7 +82,7 @@ def cotFromDict(MY_UID, cot, LANG, MISSION):
     return ET.tostring(root)
 
 
-def keepAlive(uid, LANG, VERSION):
+def keep_alive(uid, lang, version):
     root = ET.Element("event")
     root.set("version", "2.0")
     root.set("type", "a-f-G-U")
@@ -97,8 +92,8 @@ def keepAlive(uid, LANG, VERSION):
     root.set("start", pytak.cot_time())
     root.set("stale", pytak.cot_time(60))
     pt_attr = {
-        "lat": "0.0",  # "60.203748",
-        "lon": "0.0",  # "24.961131",
+        "lat": "0.0",
+        "lon": "0.0",
         "hae": "9999999.0",
         "ce": "9999999",
         "le": "9999999",
@@ -111,13 +106,13 @@ def keepAlive(uid, LANG, VERSION):
     contact.set("callsign", callsign)
     contact.set("phone", "+358-29-539-1000")
     contact.set("emailAddress", "kirjaamo@fmi.fi")
-    contact.set("endpoint", "*:-1:stcp")  # Kept for future use
+    contact.set("endpoint", "*:-1:stcp")
 
     takv = ET.Element("takv")
     takv.set("device", "Docker")
     takv.set("os", "Linux")
     takv.set("platform", "Warning feeder")
-    takv.set("version", VERSION)
+    takv.set("version", version)
 
     remarks = ET.Element("remarks")
     remarks.text = "#weather"

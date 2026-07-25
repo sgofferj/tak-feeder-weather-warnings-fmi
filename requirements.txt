@@ -1,5 +1,6 @@
 asyncio
-requests
+aiohttp
 pytak
 pytak[with_crypto]
 pytak[with_takproto]
+-e ./lib/python-takserver-api

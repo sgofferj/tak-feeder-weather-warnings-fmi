@@ -13,7 +13,7 @@ dateformat = "%Y-%m-%dT%H:%M:%S%z"
 special_char_map = {ord("ä"): "ae", ord("ü"): "ue", ord("ö"): "oe", ord("å"): "a"}
 
 
-def getCap(lang):
+def get_cap(lang):
     """Download the CAP XML and get rid of all namespaces"""
     url = f"https://alerts.fmi.fi/cap/feed/atom_{lang}.xml"
     r = req.get(url)
@@ -24,7 +24,7 @@ def getCap(lang):
     return root
 
 
-def cap2List(capxml, lang, filter_urgency, filter_eventcode):
+def cap_to_list(capxml, lang, filter_urgency, filter_eventcode):
     """Extract the relevant data from the CAP XML and create an object for further processing"""
     tmp_object = []
     for child in capxml.findall("entry"):
@@ -67,9 +67,9 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                         areas = info.findall("area")
                         tmp_areas = []
                         for area in areas:
-                            areaDesc = area.find("areaDesc").text
+                            area_desc = area.find("areaDesc").text
                             geocode = (
-                                areaDesc.replace(" ", "_")
+                                area_desc.replace(" ", "_")
                                 .lower()
                                 .translate(special_char_map)
                             )
@@ -77,7 +77,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                             urnhash = hashlib.md5(uid.encode("UTF-8")).hexdigest()
                             uid = str(uuid.UUID(hex=urnhash))
                             uid = uid_prefix + uid
-                            callsign = event + " " + areaDesc  # "WW." + urnhash
+                            callsign = event + " " + area_desc
                             polygon = area.find("polygon").text
                             points = polygon.split(" ")
                             lat, lon = util.centroid(points)
@@ -88,7 +88,7 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
                                 {
                                     "uid": uid,
                                     "callsign": callsign,
-                                    "areaDesc": areaDesc,
+                                    "areaDesc": area_desc,
                                     "lat": lat,
                                     "lon": lon,
                                     "points": points,
@@ -100,9 +100,9 @@ def cap2List(capxml, lang, filter_urgency, filter_eventcode):
     return tmp_object
 
 
-def uidsInCap(capList):
+def uids_in_cap(cap_list):
     uids = []
-    for alert in capList:
+    for alert in cap_list:
         for area in alert["areas"]:
             uid = area["uid"]
             uids.append(uid)

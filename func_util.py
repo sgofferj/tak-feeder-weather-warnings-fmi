@@ -1,6 +1,3 @@
-import time
-
-
 def centroid(points):
     vertices = []
     for pts in points:
@@ -24,32 +21,9 @@ def centroid(points):
     return x, y
 
 
-def getUidsInMission(cots):
+def get_uids_in_mission(cots):
     tmp_list = []
     for cot in cots:
         uid = cot["data"]
         tmp_list.append(uid)
     return tmp_list
-
-
-def cleanupMission(self, takserver, MY_UID, missionName, mission, capUids, token):
-    self._logger.info("Mission cleanup...")
-    missionUids = getUidsInMission(mission["data"][0]["uids"])
-    valid = 0
-    deleted = 0
-    for missionUid in missionUids:
-        if missionUid in capUids:
-            valid += 1
-        else:
-            status, result = takserver.removeMissionContent(
-                missionName, missionUid, MY_UID, token
-            )
-            if status == 200:
-                self._logger.info("Removed %s", missionUid)
-            else:
-                self._logger.error(
-                    "Could not remove %s: %d %s", missionUid, status, result
-                )
-            # time.sleep(1)
-            deleted += 1
-    self._logger.info("Cleanup done. Still valid: %d, deleted: %d.", valid, deleted)

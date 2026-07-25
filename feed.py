@@ -1,14 +1,21 @@
 import os
 import asyncio
-import pytak
 from configparser import ConfigParser
+from datetime import timezone as tz
+from typing import Any
+
+import pytak
+from python_takserver_api import Server, build_mission_package  # type: ignore[attr-defined]
+
 import func_fmi as fmi
 import func_cot as cot
-import class_api as api
 import func_util as util
-from datetime import timezone as tz
 
 VERSION = "0.1"
+
+# pylint: disable=invalid-name
+takserver: Any = None
+# pylint: enable=invalid-name
 
 COT_URL = os.getenv("COT_URL")
 CLIENT_CERT = os.getenv("CLIENT_CERT")
@@ -20,7 +27,8 @@ LANG = os.getenv("FMI_LANG", "en-GB")
 API_HOST = os.getenv("API_HOST")
 API_PORT = int(os.getenv("API_PORT", 8443))
 MISSION_NAME = os.getenv("MISSION_NAME", "Weatherwarnings")
-TOKEN = os.getenv("MISSION_TOKEN", "")
+MISSION_GROUP = os.getenv("MISSION_GROUP", "")
+token = os.getenv("MISSION_TOKEN", "")
 FILTER_URGENCY = os.getenv("FILTER_URGENCY", "Expected,Immediate").split(",")
 FILTER_EVENTCODE = os.getenv(
     "FILTER_EVENTCODE",
@@ -28,80 +36,92 @@ FILTER_EVENTCODE = os.getenv(
 ).split(",")
 
 
-class sendWarnings(pytak.QueueWorker):
-
+class SendWarnings(pytak.QueueWorker):
     async def handle_data(self, data):
-        """Handle pre-CoT data, serialize to CoT Event, then puts on queue."""
-        event = data
-        await self.put_queue(event)
+        """No-op: CoTs delivered via mission package, not CoT stream."""
 
     async def run(self):
         """Weather warning loop"""
         self._logger.setLevel("DEBUG")
+        global token
         while 1:
             self._logger.info("Getting mission from TAK server...")
-            mstatus, mission = takserver.getMission(MISSION_NAME)
-            if mstatus == 404:
-                self._logger.info("Mission not found.")
-            if mstatus == 200:
+            m_status, mission = await takserver.mission.get_mission(MISSION_NAME)
+            if m_status == 404:
+                status, new_mission = await takserver.mission.create_mission(
+                    MISSION_NAME,
+                    MY_UID,
+                    group=MISSION_GROUP,
+                    default_role="MISSION_READONLY_SUBSCRIBER",
+                    classification="unclassified",
+                )
+                if status < 400:
+                    token = new_mission["data"][0]["token"]
+                    self._logger.info("Mission recreated, new token obtained.")
+                else:
+                    self._logger.error(
+                        "Failed to recreate mission: %s %s", status, new_mission
+                    )
+            elif m_status == 200:
                 self._logger.info("Mission found.")
-                data = bytes()
-                uids = []
-                added = 0
-                skipped = 0
                 self._logger.info("Getting warning data...")
-                caps = fmi.getCap(LANG)
-                capList = fmi.cap2List(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
-                self._logger.info("Updating mission...")
-                missionUids = util.getUidsInMission(mission["data"][0]["uids"])
+                caps = fmi.get_cap(LANG)
+                cap_list = fmi.cap_to_list(caps, LANG, FILTER_URGENCY, FILTER_EVENTCODE)
+                cap_uids = fmi.uids_in_cap(cap_list)
+                mission_uids = set(util.get_uids_in_mission(mission["data"][0]["uids"]))
 
-                for alert in capList:
-                    alertDict = {
-                        "color": alert["info"]["color"],
-                        "event": alert["info"]["event"],
-                        "headline": alert["info"]["headline"],
-                        "description": alert["info"]["description"],
-                        "start": alert["info"]["start"].astimezone(tz.utc),
-                        "stale": alert["info"]["stale"].astimezone(tz.utc),
-                    }
-                    for area in alert["areas"]:
-                        alertDict.update(
-                            {
-                                "uid": area["uid"],
-                                "callsign": area["callsign"],
-                                "areaDesc": area["areaDesc"],
-                                "lat": area["lat"],
-                                "lon": area["lon"],
-                                "points": area["points"],
-                            }
-                        )
-                        if area["uid"] in missionUids:
-                            skipped += 1
-                        else:
-                            data = cot.cotFromDict(
-                                MY_UID, alertDict, LANG, MISSION_NAME
+                if set(cap_uids) == mission_uids:
+                    self._logger.info("No changes detected, skipping package upload.")
+                else:
+                    self._logger.info("Changes detected, building mission package...")
+                    cot_files: dict[str, bytes | str] = {}
+                    for alert in cap_list:
+                        alert_dict = {
+                            "color": alert["info"]["color"],
+                            "event": alert["info"]["event"],
+                            "headline": alert["info"]["headline"],
+                            "description": alert["info"]["description"],
+                            "start": alert["info"]["start"].astimezone(tz.utc),
+                            "stale": alert["info"]["stale"].astimezone(tz.utc),
+                        }
+                        for area in alert["areas"]:
+                            alert_dict.update(
+                                {
+                                    "uid": area["uid"],
+                                    "callsign": area["callsign"],
+                                    "areaDesc": area["areaDesc"],
+                                    "lat": area["lat"],
+                                    "lon": area["lon"],
+                                    "points": area["points"],
+                                }
                             )
-                            # self._logger.info("%s", data.decode())
-                            await self.handle_data(data)
-                            uids.append(area["uid"])
-                            added += 1
-                if len(uids) > 0:
-                    status, result = takserver.addMissionContent(
-                        MISSION_NAME, uids, MY_UID, TOKEN
+                            cot_data = cot.cot_from_dict(
+                                MY_UID, alert_dict, LANG, MISSION_NAME
+                            )
+                            cot_files[area["uid"]] = cot_data
+
+                    mission_server = f"{API_HOST}:{API_PORT}:ssl"
+                    pkg = build_mission_package(
+                        name=MISSION_NAME,
+                        mission_name=MISSION_NAME,
+                        mission_server=mission_server,
+                        creator_uid=MY_UID,
+                        cot_files=cot_files,
+                    )
+                    self._logger.info(
+                        "Uploading mission package with %d CoTs...", len(cot_files)
+                    )
+                    status, result = await takserver.mission.add_mission_package(
+                        MISSION_NAME, MY_UID, token, pkg
                     )
                     if status != 200:
                         self._logger.error("%s %s", status, result)
-                self._logger.info(
-                    "Update done. Total warnings available: %d, added: %d, skipped: %d."
-                    % ((added + skipped), added, skipped)
-                )
+                    else:
+                        self._logger.info("Mission package added successfully")
+                self._logger.info("Update done.")
                 await asyncio.sleep(
                     30
                 )  # This delay is more for the benefits of clients. ATAK sometimes gets confused is mission changes happen to quickly.
-                capUids = fmi.uidsInCap(capList)
-                util.cleanupMission(
-                    self, takserver, MY_UID, MISSION_NAME, mission, capUids, TOKEN
-                )
                 await asyncio.sleep(UPDATE_INTERVAL)
             else:
                 self._logger.info(
@@ -109,7 +129,7 @@ class sendWarnings(pytak.QueueWorker):
                 )
 
 
-class sendKeepAlive(pytak.QueueWorker):
+class SendKeepAlive(pytak.QueueWorker):
 
     async def handle_data(self, data):
         """Handle pre-CoT data, serialize to CoT Event, then puts on queue."""
@@ -119,8 +139,7 @@ class sendKeepAlive(pytak.QueueWorker):
     async def run(self):
         """Keepalive loop, sends a cot for the FMI"""
         while 1:
-            data = bytes()
-            data = cot.keepAlive(MY_UID, LANG, VERSION)
+            data = cot.keep_alive(MY_UID, LANG, VERSION)
             # self._logger.info("Sent:\n%s\n", data.decode())
             await self.handle_data(data)
             await asyncio.sleep(30)
@@ -142,58 +161,66 @@ class MyReceiver(pytak.QueueWorker):
             await self.handle_data(data)
 
 
-async def main():
-    config = ConfigParser()
-    config["mycottool"] = {
-        "COT_URL": COT_URL,
-        "TAK_PROTO": "0",
-        "PYTAK_TLS_CLIENT_CERT": CLIENT_CERT,
-        "PYTAK_TLS_CLIENT_KEY": CLIENT_KEY,
-        "PYTAK_TLS_DONT_VERIFY": PYTAK_TLS_DONT_VERIFY,
-        "MAX_OUT_QUEUE": 1500,
-    }
-    config = config["mycottool"]
+async def async_main():
+    global takserver
+    global token
+    takserver = Server(API_HOST, CLIENT_CERT, CLIENT_KEY)
+    try:
+        token_val = token
+        if token_val == "":
+            print("Trying to create subscription...")
+            status, subscription = await takserver.mission.create_mission_subscription(
+                MISSION_NAME, MY_UID
+            )
+            if status == 201:
+                token = subscription["data"]["token"]
+                role = subscription["data"]["role"]["type"]
+                print(f"Subscription sucessful\nRole: {role}\ntoken: {token}")
+            if status == 404:
+                print("Mission does not exist, creating...")
+                status, mission = await takserver.mission.create_mission(
+                    MISSION_NAME,
+                    MY_UID,
+                    group=MISSION_GROUP,
+                    default_role="MISSION_READONLY_SUBSCRIBER",
+                    classification="unclassified",
+                )
+                if status < 400:
+                    token = mission["data"][0]["token"]
+                    print(f"Mission created, token: {token}")
+                if status > 400:
+                    print("%s %s", status, mission)
+                    print("Can neither subscribe to nor create mission. Exiting...")
+                    return
 
-    clitool = pytak.CLITool(config)
-    await clitool.setup()
+        config = ConfigParser()
+        config["mycottool"] = {
+            "COT_URL": COT_URL,
+            "TAK_PROTO": "0",
+            "PYTAK_TLS_CLIENT_CERT": CLIENT_CERT,
+            "PYTAK_TLS_CLIENT_KEY": CLIENT_KEY,
+            "PYTAK_TLS_DONT_VERIFY": PYTAK_TLS_DONT_VERIFY,
+            "MAX_OUT_QUEUE": 1500,
+        }
+        config = config["mycottool"]
 
-    clitool.add_tasks(
-        set(
-            [
-                sendKeepAlive(clitool.tx_queue, config),
-                sendWarnings(clitool.tx_queue, config),
-                MyReceiver(clitool.rx_queue, config),
-            ]
+        clitool = pytak.CLITool(config)
+        await clitool.setup()
+
+        clitool.add_tasks(
+            set(
+                [
+                    SendKeepAlive(clitool.tx_queue, config),
+                    SendWarnings(clitool.tx_queue, config),
+                    MyReceiver(clitool.rx_queue, config),
+                ]
+            )
         )
-    )
 
-    await clitool.run()
+        await clitool.run()
+    finally:
+        await takserver.close()
 
 
 if __name__ == "__main__":
-    takserver = api.server(API_HOST, CLIENT_CERT, CLIENT_KEY)
-
-    if TOKEN == "":
-        print("Trying to create subscription...")
-        status, subscription = takserver.createMissionSubscription(MISSION_NAME, MY_UID)
-        if status == 201:
-            TOKEN = subscription["data"]["token"]
-            role = subscription["data"]["role"]["type"]
-            print(f"Subscription sucessful\nRole: {role}\ntoken: {TOKEN}")
-        if status == 404:
-            print("Mission does not exist, creating...")
-            status, mission = takserver.createMission(
-                MISSION_NAME,
-                MY_UID,
-                defaultrole="MISSION_READONLY_SUBSCRIBER",
-                classification="unclassified",
-            )
-            if status < 400:
-                TOKEN = mission["data"][0]["token"]
-                print(f"Mission created, token: {TOKEN}")
-            if status > 400:
-                print("%s %s", status, mission)
-                print("Can neither subscribe to nor create mission. Exiting...")
-                exit()
-
-    asyncio.run(main())
+    asyncio.run(async_main())

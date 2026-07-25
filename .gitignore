@@ -5,3 +5,5 @@ venv
 *.json
 *.xml
 .env
+feeder-weather*.pem
+feeder-weather*.key
