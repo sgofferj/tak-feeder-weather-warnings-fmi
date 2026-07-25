@@ -100,6 +100,7 @@ class SendWarnings(pytak.QueueWorker):
                         self._logger.error(
                             "Failed to remove %s: %s %s", stale_uid, s, r
                         )
+                    await asyncio.sleep(3)
 
                 if set(cap_uids) == mission_uids:
                     self._logger.info("No changes detected, skipping package upload.")
