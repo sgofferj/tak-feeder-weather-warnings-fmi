@@ -10,5 +10,6 @@ ENV VERSION=20240916205000
 WORKDIR /app
 COPY requirements.txt ./
 RUN apk add --no-cache git && pip install --no-cache-dir -r requirements.txt && apk del git
+COPY --chmod=777 *.py ./
 
 CMD [ "/usr/local/bin/python", "/app/feed.py" ]
