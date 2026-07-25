@@ -13,3 +13,6 @@ RUN apk add --no-cache git && pip install --no-cache-dir -r requirements.txt && 
 COPY --chmod=777 *.py ./
 
 CMD [ "/usr/local/bin/python", "/app/feed.py" ]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=2 \
+  CMD test ! -f /tmp/tak-feeder-healthy

@@ -35,6 +35,21 @@ FILTER_EVENTCODE = os.getenv(
     "forestFireWeather,hotWeather,rain,seaThunderstorm,seaWind,thunderstorm,wind",
 ).split(",")
 
+HEALTH_FILE = os.getenv("HEALTH_FILE", "/tmp/tak-feeder-healthy")
+HEALTH_MAX_ERRORS = int(os.getenv("HEALTH_MAX_ERRORS", "3"))
+
+
+def _report_health(ok: bool) -> None:
+    """Write health status file. No file = healthy."""
+    if ok:
+        try:
+            os.unlink(HEALTH_FILE)
+        except FileNotFoundError:
+            pass
+    else:
+        with open(HEALTH_FILE, "w") as f:
+            f.write("unhealthy")
+
 
 class SendWarnings(pytak.QueueWorker):
     async def handle_data(self, data):
@@ -44,6 +59,7 @@ class SendWarnings(pytak.QueueWorker):
         """Weather warning loop"""
         self._logger.setLevel("DEBUG")
         global token
+        consecutive_errors = 0
         while 1:
             self._logger.info("Getting mission from TAK server...")
             m_status, mission = await takserver.mission.get_mission(MISSION_NAME)
@@ -58,10 +74,13 @@ class SendWarnings(pytak.QueueWorker):
                 if status < 400:
                     token = new_mission["data"][0]["token"]
                     self._logger.info("Mission recreated, new token obtained.")
+                    consecutive_errors = 0
+                    _report_health(True)
                 else:
                     self._logger.error(
                         "Failed to recreate mission: %s %s", status, new_mission
                     )
+                    consecutive_errors += 1
             elif m_status == 200:
                 self._logger.info("Mission found.")
                 self._logger.info("Getting warning data...")
@@ -72,6 +91,8 @@ class SendWarnings(pytak.QueueWorker):
 
                 if set(cap_uids) == mission_uids:
                     self._logger.info("No changes detected, skipping package upload.")
+                    consecutive_errors = 0
+                    _report_health(True)
                 else:
                     self._logger.info("Changes detected, building mission package...")
                     cot_files: dict[str, bytes | str] = {}
@@ -116,8 +137,11 @@ class SendWarnings(pytak.QueueWorker):
                     )
                     if status != 200:
                         self._logger.error("%s %s", status, result)
+                        consecutive_errors += 1
                     else:
                         self._logger.info("Mission package added successfully")
+                        consecutive_errors = 0
+                        _report_health(True)
                 self._logger.info("Update done.")
                 await asyncio.sleep(
                     30
@@ -127,6 +151,10 @@ class SendWarnings(pytak.QueueWorker):
                 self._logger.info(
                     "Could neither find nor create mission. Please check the configuration!"
                 )
+                consecutive_errors += 1
+
+            if consecutive_errors >= HEALTH_MAX_ERRORS:
+                _report_health(False)
 
 
 class SendKeepAlive(pytak.QueueWorker):
