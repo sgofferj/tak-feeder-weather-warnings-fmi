@@ -3,4 +3,4 @@ aiohttp
 pytak
 pytak[with_crypto]
 pytak[with_takproto]
--e ./lib/python-takserver-api
+python-takserver-api @ git+https://github.com/sgofferj/python-takserver-api.git
