@@ -89,6 +89,18 @@ class SendWarnings(pytak.QueueWorker):
                 cap_uids = fmi.uids_in_cap(cap_list)
                 mission_uids = set(util.get_uids_in_mission(mission["data"][0]["uids"]))
 
+                # Remove stale UIDs that are no longer in the CAP feed
+                stale_uids = mission_uids - set(cap_uids)
+                for stale_uid in stale_uids:
+                    self._logger.info("Removing stale content: %s", stale_uid)
+                    s, r = await takserver.mission.remove_mission_content(
+                        MISSION_NAME, stale_uid, MY_UID, token
+                    )
+                    if s != 200:
+                        self._logger.error(
+                            "Failed to remove %s: %s %s", stale_uid, s, r
+                        )
+
                 if set(cap_uids) == mission_uids:
                     self._logger.info("No changes detected, skipping package upload.")
                     consecutive_errors = 0
